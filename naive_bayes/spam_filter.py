@@ -113,8 +113,15 @@ class NaiveBayesClassifier(object):
             lower()
         return np.array(nltk.word_tokenize(prepared_msg))
 
-    def classify_all(self, body):
-        pass
+    def classify_all(self, data):
+        count = 0
+        for row in data.iterrows():
+            classified = self.classify(row[1][0])
+            real = str(row[1][1])
+            if classified == real:
+                count += 1
+            row[1][2] = self.classify(row[1][0])
+        print('result: %s / %s' % (count, len(data)))
 
     def classify(self, msg):
         ham, spam = self.model
@@ -127,16 +134,18 @@ class NaiveBayesClassifier(object):
         l_all_spam = len(spam[1])
         l_all_ham = len(ham[1])
         for word in msg:
-            if ham[1][word]:
-                p_ham += log(ham[1][word]/l_all_spam)
-            if spam[1][word]:
-                p_spam += log(spam[1][word]/l_all_ham)
-            #print('spam: %s, ham: %s, for msg: %s' % (p_ham, p_spam, str(msg)))
+            if ham.count_map[word]:
+                p_ham += log(ham.count_map[word] / l_all_spam)
+            if spam.count_map[word]:
+                p_spam += log(spam.count_map[word] / l_all_ham)
 
-        return 'ham' if p_ham > p_spam else 'spam'
+        result_class = 'ham' if p_ham < p_spam else 'spam'
+        #print('spam: %s, ham: %s, for msg: %s, result: %s' % (p_ham, p_spam, str(msg), result_class))
+        return result_class
 
     def test_model(self, test_set):
-        return test_set.assign(predict_class=lambda row: self.classify_all(row.body))
+        test_set.insert(len(test_set.columns), 'classify_class', '')
+        self.classify_all(test_set)
 
 if __name__ == "__main__":
     # TODO: make composition
@@ -145,3 +154,4 @@ if __name__ == "__main__":
     trained_model = NaiveBayesModel(separated.train).trained_model
     classifier = NaiveBayesClassifier(trained_model)
     classifier.test_model(separated.test)
+    print(separated.test)
